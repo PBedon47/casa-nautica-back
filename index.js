@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express'), cors = require('cors'), crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { sendInvitacion } = require('./whatsapp');
+const sharp = require('sharp');
+const { enviarInvitacion, crearInvitacion } = require('./invitacion');
 const db = new PrismaClient(), app = express();
 app.use(cors(), express.json({ limit: '1mb' }));
 const CAP = 18, SECRET = process.env.TOKEN_SECRET || 'cambia-esto';
@@ -45,7 +47,10 @@ app.post('/api/rsvp', guest, async (q, s) => {
   const data = { name, going, phone: going ? phone : '',
     music: going ? (Array.isArray(b.music) ? b.music.map(clean).join(',') : '') : '', food: going ? clean(b.food) : '' };
     await db.guest.upsert({ where: { nameKey }, update: data, create: { ...data, nameKey } });
-  if (going && (!cur?.going || cur.phone !== phone)) sendInvitacion(phone, name).catch(e => console.error('WhatsApp:', e.message));
+    if (going && (!cur?.going || cur.phone !== phone)) {
+    const { houseFee } = await ev();
+    enviarInvitacion(phone, name, houseFee).catch(e => console.error('WhatsApp:', e.message));
+  }
   s.json({ ok: true });
 });
 
@@ -63,11 +68,24 @@ app.patch('/api/admin/guests/:id', admin, async (q, s) => {
   if (d.name) d.nameKey = d.name.toLowerCase();
   s.json(await db.guest.update({ where: { id: +q.params.id }, data: d }));
 });
+app.put('/api/admin/event', admin, async (q, s) => {
+  const n = v => Math.max(0, Math.round(Number(v)) || 0);
+  const data = { total: n(q.body.total), houseFee: n(q.body.houseFee), extraFee: n(q.body.extraFee) };
+  s.json(await db.event.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } }));
+});
 app.get('/health', (_, s) => s.send('ok'));
 app.post('/api/admin/guests/:id/whatsapp', admin, async (q, s) => {
   const g = await db.guest.findUnique({ where: { id: +q.params.id } });
   if (!g || !g.going || !g.phone) return s.status(400).json({ error: 'El invitado no asiste o no tiene WhatsApp' });
-  try { await sendInvitacion(g.phone, g.name); s.json({ ok: true }); }
+  try { const { houseFee } = await ev(); await enviarInvitacion(g.phone, g.name, houseFee); s.json({ ok: true }); }
   catch (e) { s.status(502).json({ error: e.message }); }
+});
+app.get('/api/invitacion.png', async (q, s) => {
+  try {
+    const name = String(q.query.n || '').trim().slice(0, 40) || 'Invitado';
+    const { houseFee } = await ev();
+    const png = await sharp(await crearInvitacion(name, houseFee)).png().toBuffer();
+    s.type('png').send(png);
+  } catch (e) { s.status(500).json({ error: e.message }); }
 });
 app.listen(process.env.PORT || 4000, () => console.log('API lista'));
