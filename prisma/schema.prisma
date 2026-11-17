@@ -1,12 +1,19 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"
-  url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model Event {
   id       Int @id @default(1)
   total    Int @default(890)
   houseFee Int @default(50)
   extraFee Int @default(0)
 }
+
 model Guest {
   id        Int      @id @default(autoincrement())
   name      String
