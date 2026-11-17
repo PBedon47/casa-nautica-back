@@ -63,13 +63,11 @@ app.patch('/api/admin/guests/:id', admin, async (q, s) => {
   if (d.name) d.nameKey = d.name.toLowerCase();
   s.json(await db.guest.update({ where: { id: +q.params.id }, data: d }));
 });
-app.delete('/api/admin/guests/:id', admin, async (q, s) => { await db.guest.delete({ where: { id: +q.params.id } }); s.json({ ok: true }); });
-app.put('/api/admin/event', admin, async (q, s) => s.json(await db.event.update({ where: { id: 1 }, data: { total: +q.body.total || 890, houseFee: +q.body.houseFee || 50, extraFee: +q.body.extraFee || 0 } })));
 app.get('/health', (_, s) => s.send('ok'));
-app.listen(process.env.PORT || 4000, () => console.log('API lista'));
 app.post('/api/admin/guests/:id/whatsapp', admin, async (q, s) => {
   const g = await db.guest.findUnique({ where: { id: +q.params.id } });
   if (!g || !g.going || !g.phone) return s.status(400).json({ error: 'El invitado no asiste o no tiene WhatsApp' });
   try { await sendInvitacion(g.phone, g.name); s.json({ ok: true }); }
   catch (e) { s.status(502).json({ error: e.message }); }
 });
+app.listen(process.env.PORT || 4000, () => console.log('API lista'));
