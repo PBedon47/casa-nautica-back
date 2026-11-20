@@ -88,4 +88,5 @@ app.get('/api/invitacion.png', async (q, s) => {
     s.type('png').send(png);
   } catch (e) { s.status(500).json({ error: e.message }); }
 });
+app.get('/health', (_, s) => s.send('ok'));
 app.listen(process.env.PORT || 4000, () => console.log('API lista'));
