@@ -6,7 +6,7 @@ const sharp = require('sharp');
 const { enviarInvitacion, crearInvitacion } = require('./invitacion');
 const db = new PrismaClient(), app = express();
 app.use(cors(), express.json({ limit: '1mb' }));
-const CAP = 18, SECRET = process.env.TOKEN_SECRET || 'cambia-esto';
+const CAP = 20, SECRET = process.env.TOKEN_SECRET || 'cambia-esto';
 const ev = () => db.event.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 const tally = (guests, f) => guests.reduce((a, g) => { g[f].split(',').filter(Boolean).forEach(k => a[k] = (a[k] || 0) + 1); return a; }, {});
 
@@ -67,6 +67,15 @@ app.patch('/api/admin/guests/:id', admin, async (q, s) => {
   for (const k of ['going', 'paidHouse', 'paidExtra']) if (typeof b[k] === 'boolean') d[k] = b[k];
   if (d.name) d.nameKey = d.name.toLowerCase();
   s.json(await db.guest.update({ where: { id: +q.params.id }, data: d }));
+});
+app.delete('/api/admin/guests/:id', admin, async (q, s) => {
+  try {
+    await db.guest.delete({ where: { id: +q.params.id } });
+    s.json({ ok: true });
+  } catch (e) {
+    if (e.code === 'P2025') return s.status(404).json({ error: 'El invitado ya no existe' });
+    s.status(500).json({ error: e.message });
+  }
 });
 app.put('/api/admin/event', admin, async (q, s) => {
   const n = v => Math.max(0, Math.round(Number(v)) || 0);
